@@ -5,8 +5,8 @@ export async function onRequest(context) {
   const target = urlObj.searchParams.get("url");
   const SECRET = env.SECRET_KEY;
 
-  console.log("Proxy request – key:", key);
-  console.log("Proxy request – target:", target);
+  console.log("Proxy request - key:", key);
+  console.log("Proxy request - target:", target);
 
   if (key !== SECRET) {
     console.log("Unauthorized: invalid key");
@@ -38,14 +38,14 @@ export async function onRequest(context) {
     console.log("Origin response status for target:", originResp.status);
 
     if (!originResp.ok) {
-      console.log("Error fetching target – status:", originResp.status);
+      console.log("Error fetching target - status:", originResp.status);
       return new Response(`Error fetching target: ${originResp.status}`, { status: 502 });
     }
 
     const resp = new Response(originResp.body, originResp);
-    resp.headers.set("Cache‑Control", "public, s‑maxage=86400");
-    resp.headers.set("Access‑Control‑Allow‑Origin", "*");
-    resp.headers.set("Access‑Control‑Allow-Headers", "*");
+    resp.headers.set("Cache-Control", "public, s-maxage=86400");
+    resp.headers.set("Access-Control-Allow-Origin", "*");
+    resp.headers.set("Access-Control-Allow-Headers", "*");
 
     waitUntil(cache.put(cacheKey, resp.clone()));
     console.log("Stored response in cache for target:", target);
