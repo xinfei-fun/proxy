@@ -18,13 +18,13 @@ export async function onRequest(context) {
   }
 
   try {
-    const cache = caches.default;
-    const cacheKey = new Request(target, request);
-    let response = await cache.match(cacheKey);
-    if (response) {
-      console.log("Cache HIT for target:", target);
-      return response;
-    }
+    // const cache = caches.default;
+    // const cacheKey = new Request(target, request);
+    // let response = await cache.match(cacheKey);
+    // if (response) {
+    //   console.log("Cache HIT for target:", target);
+    //   return response;
+    // }
 
     console.log("Cache MISS for target:", target);
     const referer = new URL(target).origin + "/";
