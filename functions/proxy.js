@@ -1,71 +1,68 @@
 export async function onRequest(context) {
-  const { request, env, waitUntil } = context;
+  const { request, env } = context;
   const urlObj = new URL(request.url);
   const key = urlObj.searchParams.get("key");
   const target = urlObj.searchParams.get("url");
   const SECRET = env.SECRET_KEY;
 
-  console.log("Proxy request - key:", key);
-  console.log("Proxy request - target:", target);
-
+  // 1. 验证密钥
   if (key !== SECRET) {
-    console.log("Unauthorized: invalid key");
     return new Response("Unauthorized: invalid key", { status: 401 });
   }
+
+  // 2. 验证目标 URL
   if (!target || !(target.startsWith("http://") || target.startsWith("https://"))) {
-    console.log("Bad Request: invalid or missing url parameter");
     return new Response("Bad Request: invalid or missing url parameter", { status: 400 });
   }
 
   try {
-    // const cache = caches.default;
-    // const cacheKey = new Request(target, request);
-    // let response = await cache.match(cacheKey);
-    // if (response) {
-    //   console.log("Cache HIT for target:", target);
-    //   return response;
-    // }
+    // 3. 构造发往源站的请求
+    const originRequestHeaders = new Headers();
+    originRequestHeaders.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36");
+    originRequestHeaders.set("Accept", "*/*");
+    originRequestHeaders.set("Referer", new URL(target).origin + "/");
 
-    console.log("Cache MISS for target:", target);
-    const referer = new URL(target).origin + "/";
+    // 支持 Range 请求，对大文件下载至关重要
+    if (request.headers.has("range")) {
+      originRequestHeaders.set("Range", request.headers.get("range"));
+    }
+
     const originResp = await fetch(target, {
-      method: "GET",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
-        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": referer,
-      }
+      method: request.method,
+      headers: originRequestHeaders,
+      redirect: 'follow' // 自动处理重定向
     });
-    console.log("Origin response status for target:", originResp.status);
 
+    // 4. 处理源站的响应
     if (!originResp.ok) {
-      console.log("Error fetching target - status:", originResp.status, originResp.statusText);
+      // 如果源站返回错误，将错误信息透传给客户端
       return new Response(`Error fetching target: ${originResp.status} ${originResp.statusText}`, {
         status: originResp.status,
         statusText: originResp.statusText,
       });
     }
 
-    const newHeaders = new Headers();
-    newHeaders.set("Content-Type", originResp.headers.get("Content-Type"));
-    newHeaders.set("Content-Length", originResp.headers.get("Content-Length"));
-    newHeaders.set("Cache-Control", "public, s-maxage=86400");
-    newHeaders.set("Access-Control-Allow-Origin", "*");
-    newHeaders.set("Access-Control-Allow-Headers", "*");
+    // 5. 构造返回给客户端的响应
+    const clientResponseHeaders = new Headers();
+    // 保留关键的响应头
+    if (originResp.headers.has("Content-Type")) clientResponseHeaders.set("Content-Type", originResp.headers.get("Content-Type"));
+    if (originResp.headers.has("Content-Length")) clientResponseHeaders.set("Content-Length", originResp.headers.get("Content-Length"));
+    if (originResp.headers.has("Content-Range")) clientResponseHeaders.set("Content-Range", originResp.headers.get("Content-Range"));
+    
+    // 添加我们自己的头
+    clientResponseHeaders.set("Access-Control-Allow-Origin", "*");
+    clientResponseHeaders.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    clientResponseHeaders.set("Access-Control-Allow-Headers", "*");
+    clientResponseHeaders.set("X-Proxy-Powered-By", "Cline");
 
-    const resp = new Response(originResp.body, {
+    // 返回流式响应
+    return new Response(originResp.body, {
       status: originResp.status,
       statusText: originResp.statusText,
-      headers: newHeaders,
+      headers: clientResponseHeaders,
     });
 
-    waitUntil(cache.put(cacheKey, resp.clone()));
-    console.log("Stored response in cache for target:", target);
-
-    return resp;
   } catch (err) {
-    console.log("Unexpected error in proxy:", err);
-    return new Response(`Internal error: ${err.message}`, { status: 500 });
+    return new Response(`Internal proxy error: ${err.message}`, { status: 500 });
   }
 }
