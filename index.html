@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>代理下载器</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; background: #f4f6f9; }
+    input[type="text"] { width: 100%; padding: 8px; margin: 8px 0; box-sizing: border-box; border-radius: 6px; border: 1px solid #ddd; }
+    button { padding: 10px 20px; font-size: 16px; background: #0066ff; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #0055cc; }
+    #result { margin-top: 20px; }
+    #result a { color: #0066ff; word-break: break-all; }
+    #history { margin-top: 30px; font-size: 14px; color: #555; }
+    #history li { margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <h1>代理下载器</h1>
+  <label for="urlInput">目标文件 URL：</label><br/>
+  <input type="text" id="urlInput" placeholder="https://example.com/file.zip" /><br/>
+  <label for="keyInput">访问密码：</label><br/>
+  <input type="text" id="keyInput" placeholder="输入密码" /><br/>
+  <button id="downloadBtn">提交下载</button>
+
+  <div id="result"></div>
+
+  <h2>历史记录</h2>
+  <ul id="history"></ul>
+
+  <script>
+    document.getElementById('downloadBtn').onclick = () => {
+      const url = document.getElementById('urlInput').value.trim();
+      const key = document.getElementById('keyInput').value.trim();
+      if (!url) {
+        alert('请输入目标 URL');
+        return;
+      }
+      if (!key) {
+        alert('请输入密码');
+        return;
+      }
+      const proxyUrl = `/proxy?key=${encodeURIComponent(key)}&url=${encodeURIComponent(url)}`;
+      document.getElementById('result').innerHTML = `
+        正在跳转下载：<br/>
+        <a href="${proxyUrl}" target="_blank" id="link">${proxyUrl}</a>
+        <button onclick="navigator.clipboard.writeText('${proxyUrl}'); alert('链接已复制！');" style="margin-left:10px;">复制链接</button>
+      `;
+      const li = document.createElement('li');
+      li.innerHTML = `<a href="${proxyUrl}" target="_blank">${url}</a>`;
+      document.getElementById('history').prepend(li);
+    };
+  </script>
+</body>
+</html>
