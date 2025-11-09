@@ -27,25 +27,38 @@ export async function onRequest(context) {
     }
 
     console.log("Cache MISS for target:", target);
+    const referer = new URL(target).origin + "/";
     const originResp = await fetch(target, {
       method: "GET",
-      // 你也可以删掉 headers/body 传递，只保留必要项
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible)",
-        "Accept": "*/*"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": referer,
       }
     });
     console.log("Origin response status for target:", originResp.status);
 
     if (!originResp.ok) {
-      console.log("Error fetching target - status:", originResp.status);
-      return new Response(`Error fetching target: ${originResp.status}`, { status: 502 });
+      console.log("Error fetching target - status:", originResp.status, originResp.statusText);
+      return new Response(`Error fetching target: ${originResp.status} ${originResp.statusText}`, {
+        status: originResp.status,
+        statusText: originResp.statusText,
+      });
     }
 
-    const resp = new Response(originResp.body, originResp);
-    resp.headers.set("Cache-Control", "public, s-maxage=86400");
-    resp.headers.set("Access-Control-Allow-Origin", "*");
-    resp.headers.set("Access-Control-Allow-Headers", "*");
+    const newHeaders = new Headers();
+    newHeaders.set("Content-Type", originResp.headers.get("Content-Type"));
+    newHeaders.set("Content-Length", originResp.headers.get("Content-Length"));
+    newHeaders.set("Cache-Control", "public, s-maxage=86400");
+    newHeaders.set("Access-Control-Allow-Origin", "*");
+    newHeaders.set("Access-Control-Allow-Headers", "*");
+
+    const resp = new Response(originResp.body, {
+      status: originResp.status,
+      statusText: originResp.statusText,
+      headers: newHeaders,
+    });
 
     waitUntil(cache.put(cacheKey, resp.clone()));
     console.log("Stored response in cache for target:", target);
